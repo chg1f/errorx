@@ -2,39 +2,15 @@ package errorx
 
 import (
 	"errors"
-	"testing"
+	"strconv"
 )
 
-func TestCompressError(t *testing.T) {
-	es := new(CompressError)
-	if es.Error() != "" {
-		t.Error(es.Error())
+func ExampleCompress() {
+	var err error
+	for i := 0; i < 5; i += 1 {
+		err = Compress(err, errors.New(strconv.Itoa(i)))
 	}
-	if es.x != nil {
-		t.Error(es.x)
-	}
-	es.Append(errors.New("A"))
-	if es.Error() != "A" {
-		t.Error(es.Error())
-	}
-	if len(es.x) != 1 {
-		t.Error(es.x)
-	}
-	es.Append(errors.New("B"))
-	if es.Error() != "A;B" {
-		t.Error(es.Error())
-	}
-	if len(es.x) != 2 {
-		t.Error(es.x)
-	}
-	e := es.Shrink()
-	if e.Error() != "A;B" {
-		t.Error(es.Error())
-	}
-	if es.Error() != "A;B" {
-		t.Error(es.Error())
-	}
-	if len(es.x) != 2 {
-		t.Error(es.x)
+	if err != nil {
+		// error
 	}
 }

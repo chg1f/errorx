@@ -1,3 +1,3 @@
 module github.com/chg1f/errorx
 
-go 1.18
+go 1.16
