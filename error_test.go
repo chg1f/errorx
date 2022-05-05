@@ -21,16 +21,24 @@ func TestShrink(t *testing.T) {
 	text := strings.Join(temp, "; ")
 	ce := Compress(es...)
 
+	assert.Error(t, ce)
+	assert.NotNil(t, ce)
 	assert.Equal(t, text, ce.Error())
-	assert.Equal(t, text, Shrink(ce).Error())
 
-	fmt.Println(ce.Error())
+	shrunk := Shrink(ce)
+
+	assert.Error(t, shrunk)
+	assert.NotNil(t, shrunk)
+	assert.Equal(t, text, shrunk.Error())
 }
 
 func TestCompress(t *testing.T) {
 	errPath0 := &os.PathError{Path: strconv.FormatUint(rand.Uint64(), 16), Err: os.ErrExist}
 	errPath1 := &os.PathError{Path: strconv.FormatUint(rand.Uint64(), 16), Err: os.ErrExist}
 	ce := Compress(os.ErrExist, errPath0, errPath1)
+
+	assert.Error(t, ce)
+	assert.NotNil(t, ce)
 
 	assert.True(t, errors.Is(ce, os.ErrExist))
 	assert.True(t, errors.Is(ce, errPath0))
