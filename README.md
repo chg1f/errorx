@@ -8,13 +8,25 @@ import "github.com/chg1f/errorx"
 
 ## Index
 
+- [Constants](<#constants>)
 - [func Compress(es ...error) error](<#func-compress>)
+- [func ForEach(e error, f func(int, error) bool)](<#func-foreach>)
 - [func Shrink(es ...error) error](<#func-shrink>)
 - [type CompressError](<#type-compresserror>)
-  - [func (ce *CompressError) As(t interface{}) bool](<#func-compresserror-as>)
-  - [func (ce *CompressError) Error() string](<#func-compresserror-error>)
-  - [func (ce *CompressError) Is(t error) bool](<#func-compresserror-is>)
+  - [func (e *CompressError) As(t interface{}) bool](<#func-compresserror-as>)
+  - [func (e *CompressError) Error() string](<#func-compresserror-error>)
+  - [func (e *CompressError) ForEach(f func(int, error) bool) bool](<#func-compresserror-foreach>)
+  - [func (e *CompressError) Is(t error) bool](<#func-compresserror-is>)
+  - [func (e *CompressError) Len() int](<#func-compresserror-len>)
 
+
+## Constants
+
+```go
+const (
+    ErrorSeparator = "; "
+)
+```
 
 ## func Compress
 
@@ -27,8 +39,11 @@ func Compress(es ...error) error
 
 ```go
 {
-	ce := Compress(os.ErrNotExist, os.ErrExist)
-	fmt.Println(ce)
+	var (
+		err0 = errors.New("Hello")
+		err1 = errors.New("ErrorX")
+	)
+	fmt.Println(Compress(err0, nil, err1).Error())
 
 }
 ```
@@ -36,7 +51,40 @@ func Compress(es ...error) error
 #### Output
 
 ```
-file does not exist; file already exists
+Hello; ErrorX
+```
+
+</p>
+</details>
+
+## func ForEach
+
+```go
+func ForEach(e error, f func(int, error) bool)
+```
+
+<details><summary>Example</summary>
+<p>
+
+```go
+{
+	var (
+		err0 = errors.New("Hello")
+		err1 = errors.New("ErrorX")
+	)
+	ForEach(Compress(err0, nil, err1), func(index int, err error) bool {
+		fmt.Println(index, err.Error())
+		return true
+	})
+
+}
+```
+
+#### Output
+
+```
+0 Hello
+1 ErrorX
 ```
 
 </p>
@@ -53,7 +101,11 @@ func Shrink(es ...error) error
 
 ```go
 {
-	fmt.Println(Shrink(os.ErrNotExist, os.ErrExist))
+	var (
+		err0 = errors.New("Hello")
+		err1 = errors.New("ErrorX")
+	)
+	fmt.Println(Shrink(err0, nil, err1))
 
 }
 ```
@@ -61,7 +113,7 @@ func Shrink(es ...error) error
 #### Output
 
 ```
-file does not exist; file already exists
+Hello; ErrorX
 ```
 
 </p>
@@ -71,26 +123,38 @@ file does not exist; file already exists
 
 ```go
 type CompressError struct {
-    Errors []error
+    // contains filtered or unexported fields
 }
 ```
 
 ### func \(\*CompressError\) As
 
 ```go
-func (ce *CompressError) As(t interface{}) bool
+func (e *CompressError) As(t interface{}) bool
 ```
 
 ### func \(\*CompressError\) Error
 
 ```go
-func (ce *CompressError) Error() string
+func (e *CompressError) Error() string
+```
+
+### func \(\*CompressError\) ForEach
+
+```go
+func (e *CompressError) ForEach(f func(int, error) bool) bool
 ```
 
 ### func \(\*CompressError\) Is
 
 ```go
-func (ce *CompressError) Is(t error) bool
+func (e *CompressError) Is(t error) bool
+```
+
+### func \(\*CompressError\) Len
+
+```go
+func (e *CompressError) Len() int
 ```
 
 ![test workflow](https://github.com/chg1f/errorx/actions/workflows/test.yml/badge.svg?branch=master)
