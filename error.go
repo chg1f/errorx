@@ -26,8 +26,8 @@ func (e *CompressError) Is(t error) bool {
 	}
 	if ce := new(CompressError); errors.As(t, &ce) {
 		return ce.ForEach(func(_ int, err error) bool {
-			if !errors.Is(e, err) {
-				return false
+			if !e.Is(err) {
+				return false // XXX: break ForEach
 			}
 			return true
 		})
