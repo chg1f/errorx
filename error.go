@@ -89,8 +89,9 @@ func Shrink(es ...error) error {
 	}
 	return nil
 }
-func ForEach(e error, f func(int, error) bool) {
+func ForEach(e error, f func(int, error) bool) bool {
 	if ce := new(CompressError); errors.As(e, &ce) {
-		ce.ForEach(f)
+		return ce.ForEach(f)
 	}
+	return f(0, e)
 }
