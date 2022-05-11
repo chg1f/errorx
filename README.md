@@ -10,7 +10,7 @@ import "github.com/chg1f/errorx"
 
 - [Constants](<#constants>)
 - [func Compress(es ...error) error](<#func-compress>)
-- [func ForEach(e error, f func(int, error) bool)](<#func-foreach>)
+- [func ForEach(e error, f func(int, error) bool) bool](<#func-foreach>)
 - [func Shrink(es ...error) error](<#func-shrink>)
 - [type CompressError](<#type-compresserror>)
   - [func (e *CompressError) As(t interface{}) bool](<#func-compresserror-as>)
@@ -60,7 +60,7 @@ Hello; ErrorX
 ## func ForEach
 
 ```go
-func ForEach(e error, f func(int, error) bool)
+func ForEach(e error, f func(int, error) bool) bool
 ```
 
 <details><summary>Example</summary>
