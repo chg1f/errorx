@@ -13,65 +13,115 @@ import (
 )
 
 func TestShrink(t *testing.T) {
-	es := []error{os.ErrNotExist, os.ErrExist}
-	temp := make([]string, 0, len(es))
-	for _, e := range es {
-		temp = append(temp, e.Error())
-	}
-	text := strings.Join(temp, "; ")
-	ce := Compress(es...)
-
-	assert.Error(t, ce)
-	assert.NotNil(t, ce)
-	assert.Equal(t, text, ce.Error())
-
-	shrunk := Shrink(ce)
-
-	assert.Error(t, shrunk)
-	assert.NotNil(t, shrunk)
-	assert.Equal(t, text, shrunk.Error())
+	var (
+		err0 = &os.PathError{Path: strconv.FormatUint(rand.Uint64(), 16), Err: os.ErrExist}
+		err1 = errors.New(strconv.FormatUint(rand.Uint64(), 16))
+		err2 = errors.New(strconv.FormatUint(rand.Uint64(), 16))
+	)
+	assert.Nil(t, Shrink(nil))
+	assert.Equal(t, strings.Join([]string{err0.Error(), err1.Error(), err2.Error()}, ErrorSeparator), Shrink(err0, err1, err2).Error())
 }
-
 func TestCompress(t *testing.T) {
-	errPath0 := &os.PathError{Path: strconv.FormatUint(rand.Uint64(), 16), Err: os.ErrExist}
-	errPath1 := &os.PathError{Path: strconv.FormatUint(rand.Uint64(), 16), Err: os.ErrExist}
-	ce := Compress(os.ErrExist, errPath0, errPath1)
-
-	assert.Error(t, ce)
-	assert.NotNil(t, ce)
-
-	assert.True(t, errors.Is(ce, os.ErrExist))
-	assert.True(t, errors.Is(ce, errPath0))
-	assert.True(t, errors.Is(ce, errPath1))
-	assert.False(t, errors.Is(ce, os.ErrNotExist))
-
+	var (
+		err0 = &os.PathError{Path: strconv.FormatUint(rand.Uint64(), 16), Err: os.ErrExist}
+		err1 = errors.New(strconv.FormatUint(rand.Uint64(), 16))
+		err2 = errors.New(strconv.FormatUint(rand.Uint64(), 16))
+	)
+	ce0 := Compress(nil)
+	assert.Nil(t, ce0)
 	{
-		var e *os.PathError
-		assert.True(t, errors.As(ce, &e))
-		assert.Equal(t, errPath0.Path, e.Path)
-		assert.NotEqual(t, errPath1.Path, e.Path)
+		ce := new(CompressError)
+		assert.False(t, errors.As(ce0, &ce))
 	}
+
+	ce1 := Compress(err0, err1)
+	assert.NotNil(t, ce1)
+	assert.True(t, errors.Is(ce1, err0))
+	assert.True(t, errors.Is(ce1, err1))
+	assert.False(t, errors.Is(ce1, err2))
 	{
-		var e *CompressError
-		assert.True(t, errors.As(ce, &e))
-		var e1 *os.PathError
-		assert.True(t, errors.As(e.Errors[2], &e1))
-		assert.Equal(t, errPath1.Path, e1.Path)
+		ce := new(CompressError)
+		assert.True(t, errors.As(ce1, &ce))
+		assert.NotNil(t, ce)
+		assert.Len(t, ce.x, 2)
+		assert.Len(t, ce.x, ce.Len())
+		assert.Equal(t, ce.x[0], err0)
+		assert.Equal(t, ce.x[1], err1)
+		ce.ForEach(func(_ int, err error) bool {
+			assert.NotNil(t, err)
+			assert.False(t, errors.As(err, new(*CompressError)))
+			return true
+		})
+	}
+
+	ce2 := Compress(ce0, ce1, err2)
+	assert.True(t, errors.Is(ce2, err0))
+	assert.True(t, errors.Is(ce2, err1))
+	assert.True(t, errors.Is(ce2, err2))
+	{
+		ce := new(CompressError)
+		assert.True(t, errors.As(ce2, &ce))
+		assert.NotNil(t, ce)
+		assert.Len(t, ce.x, 3)
+		assert.Len(t, ce.x, ce.Len())
+		assert.Equal(t, ce.x[0], err0)
+		assert.Equal(t, ce.x[1], err1)
+		assert.Equal(t, ce.x[2], err2)
+		ce.ForEach(func(_ int, err error) bool {
+			assert.NotNil(t, err)
+			assert.False(t, errors.As(err, new(*CompressError)))
+			return true
+		})
 	}
 }
-
-func TestCompressNil(t *testing.T) {
-	assert.Nil(t, Compress(nil, nil))
-	assert.Len(t, Compress(nil, os.ErrClosed).(*CompressError).Errors, 1)
+func TestForEach(t *testing.T) {
+	var (
+		err0 = &os.PathError{Path: strconv.FormatUint(rand.Uint64(), 16), Err: os.ErrExist}
+		err1 = errors.New(strconv.FormatUint(rand.Uint64(), 16))
+		err2 = errors.New(strconv.FormatUint(rand.Uint64(), 16))
+	)
+	ce := Compress(err0, err1, err2)
+	ForEach(ce, func(index int, err error) bool {
+		switch index {
+		case 0:
+			assert.True(t, errors.Is(err, err0))
+		case 1:
+			assert.True(t, errors.Is(err, err1))
+		case 2:
+			assert.True(t, errors.Is(err, err2))
+		}
+		return true
+	})
 }
 
 func ExampleShrink() {
-	fmt.Println(Shrink(os.ErrNotExist, os.ErrExist))
-	// output: file does not exist; file already exists
+	var (
+		err0 = errors.New("Hello")
+		err1 = errors.New("ErrorX")
+	)
+	fmt.Println(Shrink(err0, nil, err1))
+	// output:
+	// Hello; ErrorX
 }
-
 func ExampleCompress() {
-	ce := Compress(os.ErrNotExist, os.ErrExist)
-	fmt.Println(ce)
-	// output: file does not exist; file already exists
+	var (
+		err0 = errors.New("Hello")
+		err1 = errors.New("ErrorX")
+	)
+	fmt.Println(Compress(err0, nil, err1).Error())
+	// output:
+	// Hello; ErrorX
+}
+func ExampleForEach() {
+	var (
+		err0 = errors.New("Hello")
+		err1 = errors.New("ErrorX")
+	)
+	ForEach(Compress(err0, nil, err1), func(index int, err error) bool {
+		fmt.Println(index, err.Error())
+		return true
+	})
+	// output:
+	// 0 Hello
+	// 1 ErrorX
 }
