@@ -56,10 +56,8 @@ func (e *CompressError) Len() int {
 }
 func (e *CompressError) ForEach(f func(int, error) bool) bool {
 	for i := range e.x {
-		if e.x[i] != nil {
-			if !f(i, e.x[i]) {
-				return false
-			}
+		if !f(i, e.x[i]) {
+			return false
 		}
 	}
 	return true
