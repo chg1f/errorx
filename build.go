@@ -55,10 +55,6 @@ func (eb Builder[T]) Join(e ...error) error {
 	return eb.Wrap(errors.Join(e...))
 }
 
-func From[T comparable](from string) Builder[T] {
-	return build[T]().From(from)
-}
-
 func (eb Builder[T]) From(from string) Builder[T] {
 	nb := eb.clone()
 	nb.from = from
