@@ -1,8 +1,6 @@
-errx
+errorx
 ---
 
 ## Intro
 
-Minimalistic error handling library with comparable error code.
-
-## Quick
+Extended error handling with comparable code.
