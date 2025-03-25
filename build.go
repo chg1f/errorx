@@ -29,6 +29,16 @@ func (eb Builder[T]) Code(code T) Builder[T] {
 	return n
 }
 
+func Override[T comparable](msg string) Builder[T] {
+	return build[T]().Override(msg)
+}
+
+func (eb Builder[T]) Override(msg string) Builder[T] {
+	n := eb.clone()
+	n.override = msg
+	return n
+}
+
 func New(text string) error {
 	return Code(Unspecified).New(text)
 }

@@ -7,6 +7,8 @@ import (
 )
 
 type Error[T comparable] struct {
+	override string
+
 	err error
 	msg string
 
@@ -24,10 +26,16 @@ func (ex Error[T]) Stacktrace() []Frame {
 }
 
 func (ex *Error[T]) Error() string {
-	if ex.msg != "" {
-		return fmt.Sprintf("#%v %s", ex.code, ex.msg)
+	if ex.override != "" {
+		return ex.override
 	}
-	return fmt.Sprintf("#%v %s", ex.code, ex.err.Error())
+	if ex.err != nil {
+		if ex.msg != "" {
+			return fmt.Sprintf("#%v %s;%s", ex.code, ex.msg, ex.err.Error())
+		}
+		return fmt.Sprintf("#%v %s", ex.code, ex.err.Error())
+	}
+	return fmt.Sprintf("#%v %s", ex.code, ex.msg)
 }
 
 var _ error = &Error[struct{}]{}
