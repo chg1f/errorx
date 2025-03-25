@@ -25,7 +25,7 @@ func (f Frame) String() string {
 	return fmt.Sprintf("%s:%d %s", f.FileName, f.FileLine, f.FunctionName)
 }
 
-func stack() []Frame {
+func stacktrace() []Frame {
 	frames := make([]Frame, 0, StackDepth)
 	for i := 0; i < StackDepth; i++ {
 		pc, file, line, ok := runtime.Caller(i)

@@ -1,5 +1,19 @@
 package errorx
 
+import "errors"
+
+func Unwrap(err error) error {
+	return errors.Unwrap(err)
+}
+
+func Is(err, target error) bool {
+	return errors.Is(err, target)
+}
+
+func As(err error, target any) bool {
+	return errors.As(err, target)
+}
+
 type Comparable[T comparable] interface {
 	In(T) bool
 }
@@ -41,7 +55,7 @@ func Be[T comparable](err error) *Error[T] {
 
 func Stack(err error) []Frame {
 	if ex := Be[struct{}](err); ex != nil {
-		return ex.Stack()
+		return ex.Stacktrace()
 	}
 	return []Frame{}
 }
