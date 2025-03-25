@@ -1,7 +1,9 @@
 package errorx
 
 import (
+	"encoding/json"
 	"fmt"
+	"log/slog"
 )
 
 type Error[T comparable] struct {
@@ -47,3 +49,24 @@ func (ex *Error[T]) In(code T) bool {
 }
 
 var _ Comparable[struct{}] = &Error[struct{}]{}
+
+func (ex *Error[T]) String() string {
+	return ex.Error()
+}
+
+var _ fmt.Stringer = &Error[struct{}]{}
+
+func (ex *Error[T]) MarshalJSON() ([]byte, error) {
+	return []byte(ex.Error()), nil
+}
+
+var _ json.Marshaler = &Error[struct{}]{}
+
+func (ex *Error[T]) LogValue() slog.Value {
+	return slog.GroupValue(
+		slog.Any("code", ex.code),
+		slog.String("msg", ex.Error()),
+	)
+}
+
+var _ slog.LogValuer = &Error[struct{}]{}
