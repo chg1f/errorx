@@ -4,7 +4,15 @@ import (
 	"fmt"
 )
 
-type Error[T comparable] Builder[T]
+type Error[T comparable] struct {
+	err error
+	msg string
+
+	from string
+	code T
+
+	stack []Frame
+}
 
 func (ex *Error[T]) Error() string {
 	if ex.msg != "" {

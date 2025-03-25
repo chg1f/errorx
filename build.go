@@ -5,15 +5,7 @@ import (
 	"fmt"
 )
 
-type Builder[T comparable] struct {
-	err error
-	msg string
-
-	from string
-	code T
-
-	stack []Frame
-}
+type Builder[T comparable] Error[T]
 
 func build[T comparable]() Builder[T] {
 	return Builder[T]{}
