@@ -1,14 +1,15 @@
 package errorx
 
-func In[T comparable](err error, code T, from ...string) bool {
-	if len(from) > 1 {
-		panic("errx.In: too many arguments")
-	}
+type Comparable[T comparable] interface {
+	In(T) bool
+}
+
+func In[T comparable](err error, code T) bool {
 	for {
 		if err == nil {
 			return false
 		}
-		if x, ok := err.(interface{ In(T, ...string) bool }); ok {
+		if x, ok := err.(Comparable[T]); ok {
 			return x.In(code)
 		}
 		switch x := err.(type) {

@@ -13,7 +13,6 @@ func build[T comparable]() Builder[T] {
 
 func (eb Builder[T]) clone() Builder[T] {
 	return Builder[T]{
-		from: eb.from,
 		code: eb.code,
 	}
 }
@@ -45,12 +44,6 @@ func (eb Builder[T]) Wrap(err error) error {
 
 func (eb Builder[T]) Join(e ...error) error {
 	return eb.Wrap(errors.Join(e...))
-}
-
-func (eb Builder[T]) From(from string) Builder[T] {
-	nb := eb.clone()
-	nb.from = from
-	return nb
 }
 
 func Code[T comparable](code T) Builder[T] {

@@ -8,7 +8,6 @@ type Error[T comparable] struct {
 	err error
 	msg string
 
-	from string
 	code T
 
 	stack []Frame
@@ -31,11 +30,11 @@ func (ex *Error[T]) Is(err error) bool { return ex.err == err }
 
 var _ interface{ Is(error) bool } = &Error[struct{}]{}
 
-func (ex *Error[T]) In(code T, from ...string) bool {
-	return ex.code == code && (len(from) == 0 || ex.from == from[0])
+func (ex *Error[T]) In(code T) bool {
+	return ex.code == code
 }
 
-func (ex Error[T]) From() string { return ex.from }
+var _ Comparable[struct{}] = &Error[struct{}]{}
 
 func (ex Error[T]) Code() T { return ex.code }
 
