@@ -14,7 +14,7 @@ type Error[T comparable] struct {
 
 	code T
 
-	stack []Frame
+	frames []Frame
 }
 
 func (ex Error[T]) Code() T {
@@ -22,7 +22,7 @@ func (ex Error[T]) Code() T {
 }
 
 func (ex Error[T]) Stacktrace() []Frame {
-	return ex.stack
+	return ex.frames
 }
 
 func (ex *Error[T]) Error() string {

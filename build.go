@@ -5,6 +5,7 @@ import (
 	"fmt"
 )
 
+
 var Unspecified = struct{}{}
 
 type Builder[T comparable] Error[T]
@@ -46,7 +47,7 @@ func New(text string) error {
 func (eb Builder[T]) New(msg string) error {
 	ex := eb.clone()
 	ex.msg = msg
-	ex.stack = stacktrace()
+	ex.frames = Stacktrace()
 	return (*Error[T])(&ex)
 }
 
@@ -66,7 +67,7 @@ func (eb Builder[T]) Wrap(err error) error {
 	if err != nil {
 		ex := eb.clone()
 		ex.err = err
-		ex.stack = stacktrace()
+		ex.frames = Stacktrace()
 		return (*Error[T])(&ex)
 	}
 	return nil
