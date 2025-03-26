@@ -3,8 +3,16 @@ package errorx
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 )
 
+var Stacktrace = func() Stack { return nil }
+
+type Stack interface {
+	fmt.Stringer
+	slog.LogValuer
+	// json.Marshaler
+}
 
 var Unspecified = struct{}{}
 
@@ -47,7 +55,7 @@ func New(text string) error {
 func (eb Builder[T]) New(msg string) error {
 	ex := eb.clone()
 	ex.msg = msg
-	ex.frames = Stacktrace()
+	ex.stack = Stacktrace()
 	return (*Error[T])(&ex)
 }
 
@@ -67,7 +75,7 @@ func (eb Builder[T]) Wrap(err error) error {
 	if err != nil {
 		ex := eb.clone()
 		ex.err = err
-		ex.frames = Stacktrace()
+		ex.stack = Stacktrace()
 		return (*Error[T])(&ex)
 	}
 	return nil

@@ -1,6 +1,8 @@
 package stacktrace
 
 import (
+	"fmt"
+	"log/slog"
 	"reflect"
 	"runtime"
 	"strings"
@@ -18,8 +20,31 @@ func init() {
 	errorx.Stacktrace = stacktrace
 }
 
-func stacktrace() []errorx.Frame {
-	frames := make([]errorx.Frame, 0, Depth)
+type frame struct {
+	pc       uintptr
+	fileName string
+	fileLine int
+	funcName string
+}
+
+func (f frame) String() string {
+	return fmt.Sprintf("%s:%d %s", f.fileName, f.fileLine, f.funcName)
+}
+
+type stack []frame
+
+var _ errorx.Stack = stack{}
+
+func (s stack) String() string {
+	return fmt.Sprintf("%v", []frame(s))
+}
+
+func (s stack) LogValue() slog.Value {
+	return slog.AnyValue([]frame(s))
+}
+
+func stacktrace() errorx.Stack {
+	frames := make([]frame, 0, Depth)
 	for i := 0; i < Depth; i++ {
 		pc, file, line, ok := runtime.Caller(i)
 		if !ok {
@@ -28,12 +53,12 @@ func stacktrace() []errorx.Frame {
 		if strings.Contains(file, packageName) {
 			continue
 		}
-		frames = append(frames, errorx.Frame{
-			PC:       pc,
-			FileName: file,
-			FileLine: line,
-			FuncName: runtime.FuncForPC(pc).Name(),
+		frames = append(frames, frame{
+			pc:       pc,
+			fileName: file,
+			fileLine: line,
+			funcName: runtime.FuncForPC(pc).Name(),
 		})
 	}
-	return frames
+	return stack(frames)
 }

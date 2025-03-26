@@ -14,15 +14,15 @@ type Error[T comparable] struct {
 
 	code T
 
-	frames []Frame
+	stack Stack
 }
 
 func (ex Error[T]) Code() T {
 	return ex.code
 }
 
-func (ex Error[T]) Stacktrace() []Frame {
-	return ex.frames
+func (ex Error[T]) Stacktrace() Stack {
+	return ex.stack
 }
 
 func (ex *Error[T]) Error() string {
@@ -71,6 +71,13 @@ func (ex *Error[T]) MarshalJSON() ([]byte, error) {
 var _ json.Marshaler = &Error[struct{}]{}
 
 func (ex *Error[T]) LogValue() slog.Value {
+	if ex.stack != nil {
+		return slog.GroupValue(
+			slog.Any("code", ex.code),
+			slog.String("msg", ex.Error()),
+			slog.Any("stacktrace", ex.stack),
+		)
+	}
 	return slog.GroupValue(
 		slog.Any("code", ex.code),
 		slog.String("msg", ex.Error()),
