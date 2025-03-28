@@ -71,17 +71,18 @@ func (ex *Error[T]) MarshalJSON() ([]byte, error) {
 var _ json.Marshaler = &Error[struct{}]{}
 
 func (ex *Error[T]) LogValue() slog.Value {
-	if ex.stack != nil {
-		return slog.GroupValue(
-			slog.Any("code", ex.code),
-			slog.String("msg", ex.Error()),
-			slog.Any("stacktrace", ex.stack),
-		)
-	}
-	return slog.GroupValue(
-		slog.Any("code", ex.code),
-		slog.String("msg", ex.Error()),
-	)
+	return slog.StringValue(ex.Error())
+	// if ex.stack != nil {
+	// 	return slog.GroupValue(
+	// 		slog.Any("code", ex.code),
+	// 		slog.String("msg", ex.Error()),
+	// 		slog.Any("stacktrace", ex.stack),
+	// 	)
+	// }
+	// return slog.GroupValue(
+	// 	slog.Any("code", ex.code),
+	// 	slog.String("msg", ex.Error()),
+	// )
 }
 
 var _ slog.LogValuer = &Error[struct{}]{}
