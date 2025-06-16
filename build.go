@@ -3,24 +3,11 @@ package errorx
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 )
 
 var Stacktrace = func() Stack { return nil }
 
-type Stack interface {
-	fmt.Stringer
-	slog.LogValuer
-	// json.Marshaler
-}
-
-var Unspecified = struct{}{}
-
 type Builder[T comparable] Error[T]
-
-func build[T comparable]() Builder[T] {
-	return Builder[T]{}
-}
 
 func (eb Builder[T]) clone() Builder[T] {
 	return Builder[T]{
@@ -29,17 +16,15 @@ func (eb Builder[T]) clone() Builder[T] {
 }
 
 func Code[T comparable](code T) Builder[T] {
-	return build[T]().Code(code)
+	var eb Builder[T]
+	eb.code = code
+	return eb
 }
 
-func (eb Builder[T]) Code(code T) Builder[T] {
+func (eb Builder[T]) Message(msg string) Builder[T] {
 	n := eb.clone()
-	n.code = code
+	n.msg = msg
 	return n
-}
-
-func Override[T comparable](msg string) Builder[T] {
-	return build[T]().Override(msg)
 }
 
 func (eb Builder[T]) Override(msg string) Builder[T] {
@@ -48,9 +33,9 @@ func (eb Builder[T]) Override(msg string) Builder[T] {
 	return n
 }
 
-func New(text string) error {
-	return Code(Unspecified).New(text)
-}
+var Unspecified = struct{}{}
+
+func New(text string) error { return Code(Unspecified).New(text) }
 
 func (eb Builder[T]) New(msg string) error {
 	ex := eb.clone()
@@ -59,17 +44,13 @@ func (eb Builder[T]) New(msg string) error {
 	return (*Error[T])(&ex)
 }
 
-func Errorf(format string, a ...any) error {
-	return Code(Unspecified).Errorf(format, a...)
+func Errorf(format string, a ...any) error { return Code(Unspecified).Errorf(format, a...) }
+
+func (eb Builder[T]) Errorf(format string, a ...any) error {
+	return eb.New(fmt.Sprintf(format, a...))
 }
 
-func (eb Builder[T]) Errorf(format string, args ...interface{}) error {
-	return eb.New(fmt.Sprintf(format, args...))
-}
-
-func Wrap(err error) error {
-	return Code(Unspecified).Wrap(err)
-}
+func Wrap(err error) error { return Code(Unspecified).Wrap(err) }
 
 func (eb Builder[T]) Wrap(err error) error {
 	if err != nil {
@@ -81,10 +62,8 @@ func (eb Builder[T]) Wrap(err error) error {
 	return nil
 }
 
-func Join(errs ...error) error {
-	return Code(Unspecified).Join(errs...)
-}
+func Join(errs ...error) error { return Code(Unspecified).Join(errs...) }
 
-func (eb Builder[T]) Join(e ...error) error {
-	return eb.Wrap(errors.Join(e...))
+func (eb Builder[T]) Join(errs ...error) error {
+	return eb.Wrap(errors.Join(errs...))
 }

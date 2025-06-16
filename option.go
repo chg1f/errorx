@@ -1,49 +1,40 @@
 package errorx
 
 type Option[T comparable] struct {
-	empty T
-	nan   T
-}
-
-func option[T comparable]() Option[T] {
-	return Option[T]{}
-}
-
-func (ob Option[T]) clone() Option[T] {
-	return Option[T]{
-		empty: ob.empty,
-		nan:   ob.nan,
-	}
+	Empty T
+	NaN   T
 }
 
 func NaN[T comparable](code T) Option[T] {
-	return option[T]().NaN(code)
-}
-
-func (ob Option[T]) NaN(code T) Option[T] {
-	n := ob.clone()
-	n.nan = code
-	return n
+	return Option[T]{
+		NaN: code,
+	}
 }
 
 func Empty[T comparable](code T) Option[T] {
-	return option[T]().Empty(code)
+	return Option[T]{
+		Empty: code,
+	}
 }
 
-func (ob Option[T]) Empty(code T) Option[T] {
-	n := ob.clone()
-	n.empty = code
-	return n
-}
-
-func (ob Option[T]) Code(err error) T {
-	ex := Be[T](err)
-	if ex == nil {
-		return ob.nan
+func CodeOf[T comparable](err error, opts ...Option[T]) T {
+	if len(opts) > 1 {
+		panic("only one option is allowed")
 	}
 	var empty T
-	if ex.code == empty {
-		return ob.empty
+	ex := Be[T](err)
+	if ex == nil {
+		if len(opts) == 1 {
+			return opts[0].NaN
+		}
+		return empty
 	}
-	return ex.code
+	code := ex.Code()
+	if ex.code == empty {
+		if len(opts) == 1 {
+			return opts[0].Empty
+		}
+		return empty
+	}
+	return code
 }

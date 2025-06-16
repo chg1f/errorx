@@ -6,13 +6,18 @@ import (
 	"log/slog"
 )
 
+type Stack interface {
+	fmt.Stringer
+	slog.LogValuer
+	json.Marshaler
+}
+
 type Error[T comparable] struct {
-	override string
-
-	err error
-	msg string
-
 	code T
+
+	override string
+	msg      string
+	err      error
 
 	stack Stack
 }
@@ -52,37 +57,64 @@ func (ex *Error[T]) Is(err error) bool {
 
 var _ interface{ Is(error) bool } = &Error[struct{}]{}
 
-func (ex *Error[T]) In(code T) bool {
-	return ex.code == code
-}
-
-var _ Comparable[struct{}] = &Error[struct{}]{}
-
 func (ex *Error[T]) String() string {
 	return ex.Error()
 }
 
 var _ fmt.Stringer = &Error[struct{}]{}
 
-func (ex *Error[T]) MarshalJSON() ([]byte, error) {
-	return []byte(ex.Error()), nil
+// func (ex *Error[T]) LogValue() slog.Value {
+// 	return slog.StringValue(ex.Error())
+// }
+//
+// var _ slog.LogValuer = &Error[struct{}]{}
+
+// func (ex *Error[T]) MarshalJSON() ([]byte, error) {
+// 	return []byte(ex.Error()), nil
+// }
+//
+// var _ json.Marshaler = &Error[struct{}]{}
+
+func (ex *Error[T]) In(codes ...T) bool {
+	for i := range codes {
+		if ex.code == codes[i] {
+			return true
+		}
+	}
+	return false
 }
 
-var _ json.Marshaler = &Error[struct{}]{}
-
-func (ex *Error[T]) LogValue() slog.Value {
-	return slog.StringValue(ex.Error())
-	// if ex.stack != nil {
-	// 	return slog.GroupValue(
-	// 		slog.Any("code", ex.code),
-	// 		slog.String("msg", ex.Error()),
-	// 		slog.Any("stacktrace", ex.stack),
-	// 	)
-	// }
-	// return slog.GroupValue(
-	// 	slog.Any("code", ex.code),
-	// 	slog.String("msg", ex.Error()),
-	// )
+func Be[T comparable](err error) *Error[T] {
+	if err == nil {
+		return nil
+	}
+	ex, ok := err.(*Error[T])
+	if !ok {
+		return Code(Unspecified).Wrap(err).(*Error[T])
+	}
+	return ex
 }
 
-var _ slog.LogValuer = &Error[struct{}]{}
+func In[T comparable](err error, codes ...T) bool {
+	for {
+		if err == nil {
+			return false
+		}
+		if x, ok := err.(interface{ In(...T) bool }); ok {
+			return x.In(codes...)
+		}
+		switch x := err.(type) {
+		case interface{ Unwrap() error }:
+			err = x.Unwrap()
+		case interface{ Unwrap() []error }:
+			for _, err := range x.Unwrap() {
+				if In(err, codes...) {
+					return true
+				}
+			}
+			return false
+		default:
+			return false
+		}
+	}
+}
