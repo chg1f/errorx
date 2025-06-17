@@ -1,23 +1,23 @@
 package errorx
 
-type Option[T comparable] struct {
+type CodeOption[T comparable] struct {
 	Empty T
 	NaN   T
 }
 
-func NaN[T comparable](code T) Option[T] {
-	return Option[T]{
+func NaN[T comparable](code T) CodeOption[T] {
+	return CodeOption[T]{
 		NaN: code,
 	}
 }
 
-func Empty[T comparable](code T) Option[T] {
-	return Option[T]{
+func Empty[T comparable](code T) CodeOption[T] {
+	return CodeOption[T]{
 		Empty: code,
 	}
 }
 
-func CodeOf[T comparable](err error, opts ...Option[T]) T {
+func CodeOf[T comparable](err error, opts ...CodeOption[T]) T {
 	if len(opts) > 1 {
 		panic("only one option is allowed")
 	}

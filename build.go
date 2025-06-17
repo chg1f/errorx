@@ -3,6 +3,7 @@ package errorx
 import (
 	"errors"
 	"fmt"
+	"maps"
 )
 
 var Stacktrace = func() Stack { return nil }
@@ -30,6 +31,17 @@ func (eb Builder[T]) Message(msg string) Builder[T] {
 func (eb Builder[T]) Override(msg string) Builder[T] {
 	n := eb.clone()
 	n.override = msg
+	return n
+}
+
+func (eb Builder[T]) With(key string, value any) Builder[T] {
+	n := eb.clone()
+	n.values = make(map[string]any, len(eb.values)+1)
+	maps.Copy(n.values, eb.values)
+	// for k := range eb.values {
+	// 	n.values[k] = eb.values[k]
+	// }
+	n.values[key] = value
 	return n
 }
 

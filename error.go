@@ -1,10 +1,15 @@
 package errorx
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"slices"
+	"strings"
 )
+
+var Length = 1024
 
 type Stack interface {
 	fmt.Stringer
@@ -15,9 +20,11 @@ type Stack interface {
 type Error[T comparable] struct {
 	code T
 
-	override string
-	msg      string
 	err      error
+	msg      string
+	override string
+
+	values map[string]any
 
 	stack Stack
 }
@@ -26,21 +33,47 @@ func (ex Error[T]) Code() T {
 	return ex.code
 }
 
+func (ex *Error[T]) Get(key string) (any, bool) {
+	if ex.values == nil {
+		return nil, false
+	}
+	v, ok := ex.values[key]
+	return v, ok
+}
+
 func (ex Error[T]) Stacktrace() Stack {
 	return ex.stack
 }
 
 func (ex *Error[T]) Error() string {
+	bs := make([]byte, 0, Length)
+	buf := bytes.NewBuffer(bs)
+
+	fmt.Fprintf(buf, "#%v", ex.code)
+
 	if ex.override != "" {
-		return ex.override
-	}
-	if ex.err != nil {
-		if ex.msg != "" {
-			return fmt.Sprintf("#%v %s;%s", ex.code, ex.msg, ex.err.Error())
+		buf.WriteString(" " + ex.override)
+	} else {
+		if ex.err != nil {
+			if ex.msg != "" {
+				fmt.Fprintf(buf, " %s;%s", ex.msg, ex.err.Error())
+			} else {
+				fmt.Fprintf(buf, " %s", ex.err.Error())
+			}
+		} else {
+			fmt.Fprintf(buf, " %s", ex.msg)
 		}
-		return fmt.Sprintf("#%v %s", ex.code, ex.err.Error())
 	}
-	return fmt.Sprintf("#%v %s", ex.code, ex.msg)
+
+	if ex.values != nil {
+		values := make([]string, 0, len(ex.values))
+		for k := range ex.values {
+			values = append(values, fmt.Sprintf("%s=%v", k, ex.values[k]))
+		}
+		buf.WriteString(strings.Join(values, " "))
+	}
+
+	return buf.String()
 }
 
 var _ error = &Error[struct{}]{}
@@ -76,12 +109,13 @@ var _ fmt.Stringer = &Error[struct{}]{}
 // var _ json.Marshaler = &Error[struct{}]{}
 
 func (ex *Error[T]) In(codes ...T) bool {
-	for i := range codes {
-		if ex.code == codes[i] {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(codes, ex.code)
+	// for i := range codes {
+	// 	if ex.code == codes[i] {
+	// 		return true
+	// 	}
+	// }
+	// return false
 }
 
 func Be[T comparable](err error) *Error[T] {
@@ -90,7 +124,8 @@ func Be[T comparable](err error) *Error[T] {
 	}
 	ex, ok := err.(*Error[T])
 	if !ok {
-		return Code(Unspecified).Wrap(err).(*Error[T])
+		var empty T
+		ex = Code(empty).Wrap(err).(*Error[T])
 	}
 	return ex
 }
