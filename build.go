@@ -1,46 +1,42 @@
 package errorx
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
+	"log/slog"
 )
+
+type Stack interface {
+	fmt.Stringer
+	slog.LogValuer
+	json.Marshaler
+	// iter.Seq[string]
+}
 
 var Stacktrace = func() Stack { return nil }
 
 type Builder[T comparable] Error[T]
 
 func (eb Builder[T]) clone() Builder[T] {
-	return Builder[T]{
-		code: eb.code,
+	var nb Builder[T]
+	nb.code = eb.code
+	nb.values = make(map[string]any, len(eb.values))
+	for k := range eb.values {
+		nb.values[k] = eb.values[k]
 	}
+	return nb
 }
 
 func Code[T comparable](code T) Builder[T] {
 	var eb Builder[T]
 	eb.code = code
+	eb.values = map[string]any{}
 	return eb
-}
-
-func (eb Builder[T]) Message(msg string) Builder[T] {
-	n := eb.clone()
-	n.msg = msg
-	return n
-}
-
-func (eb Builder[T]) Override(msg string) Builder[T] {
-	n := eb.clone()
-	n.override = msg
-	return n
 }
 
 func (eb Builder[T]) With(key string, value any) Builder[T] {
 	n := eb.clone()
-	n.values = make(map[string]any, len(eb.values)+1)
-	maps.Copy(n.values, eb.values)
-	// for k := range eb.values {
-	// 	n.values[k] = eb.values[k]
-	// }
 	n.values[key] = value
 	return n
 }
@@ -51,7 +47,7 @@ func New(text string) error { return Code(Unspecified).New(text) }
 
 func (eb Builder[T]) New(msg string) error {
 	ex := eb.clone()
-	ex.msg = msg
+	ex.message = msg
 	ex.stack = Stacktrace()
 	return (*Error[T])(&ex)
 }
@@ -67,7 +63,7 @@ func Wrap(err error) error { return Code(Unspecified).Wrap(err) }
 func (eb Builder[T]) Wrap(err error) error {
 	if err != nil {
 		ex := eb.clone()
-		ex.err = err
+		ex.wrapped = err
 		ex.stack = Stacktrace()
 		return (*Error[T])(&ex)
 	}
