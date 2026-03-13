@@ -1,77 +1,132 @@
 package errorx
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
-	"log/slog"
+	"maps"
 )
 
-type Stack interface {
-	fmt.Stringer
-	slog.LogValuer
-	json.Marshaler
-	// iter.Seq[string]
-}
-
-var Stacktrace = func() Stack { return nil }
-
+// Builder mirrors Error so building and built values share the same fields.
 type Builder[T comparable] Error[T]
 
-func (eb Builder[T]) clone() Builder[T] {
+// clone performs a defensive copy so builder chains remain immutable.
+func (eb *Builder[T]) clone() *Builder[T] {
 	var nb Builder[T]
 	nb.code = eb.code
+	nb.message = eb.message
+	nb.locale = eb.locale
+	nb.wrapped = append([]error(nil), eb.wrapped...)
 	nb.values = make(map[string]any, len(eb.values))
-	for k := range eb.values {
-		nb.values[k] = eb.values[k]
-	}
+	maps.Copy(nb.values, eb.values)
+	nb.stack = eb.stack
+	return &nb
+}
+
+// WithCode replaces the code while preserving current builder fields.
+func (eb *Builder[T]) WithCode(code T) *Builder[T] {
+	nb := eb.clone()
+	nb.code = code
 	return nb
 }
 
-func Code[T comparable](code T) Builder[T] {
-	var eb Builder[T]
-	eb.code = code
-	eb.values = map[string]any{}
-	return eb
-}
-
-func (eb Builder[T]) With(key string, value any) Builder[T] {
-	n := eb.clone()
-	n.values[key] = value
-	return n
-}
-
-var Unspecified = struct{}{}
-
-func New(text string) error { return Code(Unspecified).New(text) }
-
-func (eb Builder[T]) New(msg string) error {
-	ex := eb.clone()
-	ex.message = msg
-	ex.stack = Stacktrace()
-	return (*Error[T])(&ex)
-}
-
-func Errorf(format string, a ...any) error { return Code(Unspecified).Errorf(format, a...) }
-
-func (eb Builder[T]) Errorf(format string, a ...any) error {
-	return eb.New(fmt.Sprintf(format, a...))
-}
-
-func Wrap(err error) error { return Code(Unspecified).Wrap(err) }
-
-func (eb Builder[T]) Wrap(err error) error {
-	if err != nil {
-		ex := eb.clone()
-		ex.wrapped = err
-		ex.stack = Stacktrace()
-		return (*Error[T])(&ex)
+// WithCode creates a new typed builder with the provided code.
+func WithCode[T comparable](code T) *Builder[T] {
+	return &Builder[T]{
+		code:   code,
+		values: map[string]any{},
 	}
-	return nil
 }
 
-func Join(errs ...error) error { return Code(Unspecified).Join(errs...) }
+// WithMessage replaces the message while preserving other builder fields.
+func (eb *Builder[T]) WithMessage(message string) *Builder[T] {
+	next := eb.clone()
+	next.message = message
+	return next
+}
 
-func (eb Builder[T]) Join(errs ...error) error {
-	return eb.Wrap(errors.Join(errs...))
+// WithMessage creates an unspecified-code builder with the provided message.
+func WithMessage(message string) *Builder[unspecified] {
+	return WithCode(Unspecified).WithMessage(message)
+}
+
+// WithLocale replaces the localization key while preserving other builder fields.
+func (eb *Builder[T]) WithLocale(locale string) *Builder[T] {
+	next := eb.clone()
+	next.locale = locale
+	return next
+}
+
+// WithLocale creates an unspecified-code builder with the provided localization key.
+func WithLocale(locale string) *Builder[unspecified] {
+	return WithCode(Unspecified).WithLocale(locale)
+}
+
+// WithValues merges values into the builder, overriding duplicated keys.
+func (eb *Builder[T]) WithValues(values map[string]any) *Builder[T] {
+	next := eb.clone()
+	for key, value := range values {
+		next.values[key] = value
+	}
+	return next
+}
+
+// WithValues creates an unspecified-code builder with the provided values.
+func WithValues(values map[string]any) *Builder[unspecified] {
+	return WithCode(Unspecified).WithValues(values)
+}
+
+// New finalizes the builder using the provided message.
+func (eb *Builder[T]) New(message string) error {
+	return eb.WithMessage(message).build()
+}
+
+// New creates an unspecified-code error with the provided message.
+func New(message string) error {
+	return WithCode(Unspecified).New(message)
+}
+
+// Errorf finalizes the builder using a formatted message.
+func (eb *Builder[T]) Errorf(format string, args ...any) error {
+	return eb.New(fmt.Sprintf(format, args...))
+}
+
+// Errorf creates an unspecified-code error using fmt.Sprintf formatting.
+func Errorf(format string, args ...any) error {
+	return WithCode(Unspecified).Errorf(format, args...)
+}
+
+// Wrap finalizes the builder while wrapping the provided cause.
+func (eb *Builder[T]) Wrap(err error) error {
+	if err == nil {
+		return nil
+	}
+	nb := eb.clone()
+	nb.wrapped = []error{err}
+	return nb.build()
+}
+
+// Wrap creates an unspecified-code error that wraps the provided cause.
+func Wrap(err error) error {
+	return WithCode(Unspecified).Wrap(err)
+}
+
+// Joins finalizes the builder while wrapping the joined errors.
+func (eb *Builder[T]) Joins(errs ...error) error {
+	nb := eb.clone()
+	nb.wrapped = compactErrors(errs)
+	if len(nb.wrapped) == 0 {
+		return nil
+	}
+	return nb.build()
+}
+
+// build finalizes the current builder into an immutable error value.
+func (eb *Builder[T]) build() error {
+	nb := eb.clone()
+	nb.stack = Stacktrace()
+	return (*Error[T])(nb)
+}
+
+// Joins creates an unspecified-code error wrapping multiple errors.
+func Joins(errs ...error) error {
+	return WithCode(Unspecified).Joins(errs...)
 }

@@ -2,168 +2,99 @@ package errorx
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
-	"iter"
-	"log/slog"
-	"slices"
+
+	"golang.org/x/text/language"
 )
 
-var Length = 1024
+// Length controls the initial buffer size used by Error.Error.
+var Length = 256
 
+// Error represents a typed error node that always carries a code.
 type Error[T comparable] struct {
-	code    T
-	values  map[string]any
-	wrapped error
-	message string
+	code   T
+	values map[string]any
 
-	stack Stack
+	message string
+	wrapped []error
+
+	locale string
+	stack  Stack
 }
 
+// Error formats the code, resolved message, metadata, and wrapped cause.
 func (ex *Error[T]) Error() string {
+	if ex == nil {
+		return "<nil>"
+	}
 	buf := bytes.NewBuffer(make([]byte, 0, Length))
-	fmt.Fprintf(buf, "#%v %s", ex.code, ex.String())
-	for k, v := range ex.Items() {
-		fmt.Fprintf(buf, " %s=%v", k, v)
+	if !isUnspecified(ex.code) {
+		fmt.Fprintf(buf, "#%v", ex.code)
+	}
+	if text := ex.String(); text != "" {
+		if buf.Len() > 0 {
+			buf.WriteByte(' ')
+		}
+		fmt.Fprintf(buf, "%s", text)
 	}
 	return buf.String()
 }
 
-var _ error = &Error[struct{}]{}
-
-func (ex *Error[T]) Unwrap() error { return ex.wrapped }
-
-var _ interface{ Unwrap() error } = &Error[struct{}]{}
-
-func (ex *Error[T]) Is(err error) bool { return ex.wrapped == err }
-
-var _ interface{ Is(error) bool } = &Error[struct{}]{}
-
+// String returns the human-readable message chain without metadata decoration.
 func (ex *Error[T]) String() string {
-	if ex.wrapped != nil {
-		if ex.message != "" {
-			return ex.message + "; " + ex.wrapped.Error()
-		}
-		return ex.wrapped.Error()
+	if ex == nil {
+		return ""
 	}
-	return ex.message
-}
-
-var _ fmt.Stringer = &Error[struct{}]{}
-
-func (ex Error[T]) Code() T { return ex.code }
-
-func (ex *Error[T]) Get(key string) (any, bool) {
-	v, ok := ex.values[key]
-	return v, ok
-}
-
-func (ex *Error[T]) Items() iter.Seq2[string, any] {
-	return func(yield func(string, any) bool) {
-		for k, v := range ex.values {
-			if !yield(k, v) {
-				return
-			}
-		}
+	switch {
+	case ex.message != "" && len(ex.wrapped) > 0:
+		return ex.message + ": " + joinErrors(ex.wrapped)
+	case ex.message != "":
+		return ex.message
+	case len(ex.wrapped) > 0:
+		return joinErrors(ex.wrapped)
+	default:
+		return ""
 	}
 }
 
-func (ex Error[T]) Stacktrace() Stack {
+// Unwrap exposes wrapped causes to the standard errors package.
+func (ex *Error[T]) Unwrap() []error {
+	return ex.wrapped
+}
+
+// Is compares typed error codes to support errors.Is against sentinel builders.
+func (ex *Error[T]) Is(target error) bool {
+	if ex == nil || target == nil {
+		return false
+	}
+	if x, ok := target.(*Error[T]); ok {
+		return ex.code == x.code
+	}
+	return false
+}
+
+// Code returns the mandatory typed code stored on the error.
+func (ex *Error[T]) Code() T {
+	if ex == nil {
+		var zero T
+		return zero
+	}
+	return ex.code
+}
+
+// Stack returns the captured stack, if a stack provider was registered.
+func (ex *Error[T]) Stack() Stack {
 	return ex.stack
 }
 
-func (ex *Error[T]) LogValue() slog.Value {
-	attrs := []slog.Attr{
-		slog.String("code", fmt.Sprintf("%v", ex.code)),
+// Localize resolves a localized message for the provided language tag.
+func (ex *Error[T]) Localize(lang language.Tag) string {
+	if ex == nil {
+		return ""
 	}
-	if ex.wrapped != nil {
-		if ex.message != "" {
-			slog.String("message", ex.message)
-		}
-		attrs = append(attrs, slog.Any("wrapped", ex.wrapped))
-	} else {
-		slog.String("message", ex.message)
-	}
-	if ex.stack != nil {
-		attrs = append(attrs, slog.Any("stack", ex.stack))
-	}
-	return slog.GroupValue(attrs...)
-}
-
-var _ slog.LogValuer = &Error[struct{}]{}
-
-func (ex *Error[T]) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]any{
-		"code":    ex.code,
-		"stack":   ex.stack,
-		"values":  ex.values,
-		"wrapped": ex.wrapped,
-		"message": ex.message,
-	})
-}
-
-var _ json.Marshaler = &Error[struct{}]{}
-
-func (ex *Error[T]) In(codes ...T) bool {
-	return slices.Contains(codes, ex.code)
-}
-
-func Be[T comparable](err error) *Error[T] {
-	if err == nil {
-		return nil
-	}
-	ex, ok := err.(*Error[T])
+	s, ok := Localize(lang, ex.locale, ex.values)
 	if !ok {
-		var empty T
-		ex = Code(empty).Wrap(err).(*Error[T])
+		return ex.message
 	}
-	return ex
-}
-
-func In[T comparable](err error, codes ...T) bool {
-	for {
-		if err == nil {
-			return false
-		}
-		if x, ok := err.(interface{ In(...T) bool }); ok {
-			return x.In(codes...)
-		}
-		switch x := err.(type) {
-		case interface{ Unwrap() error }:
-			err = x.Unwrap()
-		case interface{ Unwrap() []error }:
-			for _, err := range x.Unwrap() {
-				if In(err, codes...) {
-					return true
-				}
-			}
-			return false
-		default:
-			return false
-		}
-	}
-}
-
-func Get[T comparable](err error, key string) (any, bool) {
-	for {
-		if err == nil {
-			return nil, false
-		}
-		if x, ok := err.(*Error[T]); ok {
-			return x.Get(key)
-		}
-		switch x := err.(type) {
-		case interface{ Unwrap() error }:
-			err = x.Unwrap()
-		case interface{ Unwrap() []error }:
-			for _, err := range x.Unwrap() {
-				if v, ok := Get[T](err, key); ok {
-					return v, true
-				}
-			}
-			return nil, false
-		default:
-			return nil, false
-		}
-	}
+	return s
 }
