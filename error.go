@@ -30,33 +30,22 @@ func (ex *Error[T]) Error() string {
 	if !isUnspecified(ex.code) {
 		_, _ = fmt.Fprintf(&buf, "#%v", ex.code)
 	}
-	if text := ex.String(); text != "" {
+	if text := ex.message; text != "" {
 		if buf.Len() != 0 {
 			buf.WriteByte(' ')
 		}
 		buf.WriteString(text)
 	}
+	if ex.wrapped != nil {
+		if buf.Len() != 0 {
+			buf.WriteString("; ")
+		}
+		buf.WriteString(ex.wrapped.Error())
+	}
 	return buf.String()
 }
 
 var _ error = (*Error[struct{}])(nil)
-
-// String returns the human-readable message chain without metadata decoration.
-func (ex *Error[T]) String() string {
-	if ex == nil {
-		return ""
-	}
-	switch {
-	case ex.message != "" && ex.wrapped != nil:
-		return ex.message + "; " + ex.wrapped.Error()
-	case ex.message != "":
-		return ex.message
-	case ex.wrapped != nil:
-		return ex.wrapped.Error()
-	default:
-		return ""
-	}
-}
 
 // Unwrap exposes wrapped causes to the standard errors package.
 func (ex *Error[T]) Unwrap() error {

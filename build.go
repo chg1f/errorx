@@ -42,20 +42,14 @@ func WithAttrs(attrs ...slog.Attr) *Builder[unspecified] {
 	return WithCode(Unspecified).WithAttrs(attrs...)
 }
 
-// build finalizes the current builder into an immutable error value.
-func (eb *Builder[T]) build() error {
-	nb := eb.clone()
-	nb.stack = Stacktrace()
-	return (*Error[T])(nb)
-}
-
-// complete finalizes the builder after applying the last message, cause, and attrs.
-func (eb *Builder[T]) complete(message string, wrapped error, attrs ...slog.Attr) error {
+// build finalizes the current builder after applying the last message, cause, and attrs.
+func (eb *Builder[T]) build(message string, wrapped error, attrs ...slog.Attr) error {
 	nb := eb.clone()
 	nb.message = message
 	nb.wrapped = wrapped
 	nb.attrs = append(nb.attrs, attrs...)
-	return nb.build()
+	nb.stack = Stacktrace()
+	return (*Error[T])(nb)
 }
 
 // Wrap finalizes the builder while wrapping the provided cause.
@@ -63,7 +57,7 @@ func (eb *Builder[T]) Wrap(wrapped error, message string, attrs ...slog.Attr) er
 	if wrapped == nil {
 		return nil
 	}
-	return eb.complete(message, wrapped, attrs...)
+	return eb.build(message, wrapped, attrs...)
 }
 
 // Wrap creates an unspecified-code error that wraps the provided cause.
@@ -73,7 +67,7 @@ func Wrap(wrapped error, message string, attrs ...slog.Attr) error {
 
 // New finalizes the builder using the provided message.
 func (eb *Builder[T]) New(message string, attrs ...slog.Attr) error {
-	return eb.complete(message, nil, attrs...)
+	return eb.build(message, nil, attrs...)
 }
 
 // New creates an unspecified-code error with the provided message.

@@ -18,8 +18,7 @@ func TestBuilderMethods(t *testing.T) {
 	ex := errorx.Be[string](err)
 	require.NotNil(t, ex)
 	assert.Equal(t, "invalid", ex.Code())
-	assert.Equal(t, "invalid input", ex.String())
-	assert.Contains(t, err.Error(), "#invalid")
+	assert.EqualError(t, err, "#invalid invalid input")
 }
 
 // TestWrapAndIs verifies wrapping keeps code and cause discoverable.
@@ -31,7 +30,7 @@ func TestWrapAndIs(t *testing.T) {
 	assert.True(t, errorx.In(errorx.Be[string](err), "missing"))
 	assert.ErrorIs(t, err, base)
 	assert.Nil(t, errorx.Wrap(nil, ""))
-	assert.EqualError(t, err, "#missing load config: disk failure")
+	assert.EqualError(t, err, "#missing load config; disk failure")
 }
 
 // TestPackageLevelConstructors verifies the package-level convenience functions.
