@@ -53,10 +53,13 @@ import (
 	"fmt"
 
 	"github.com/chg1f/errorx/v2"
-	_ "github.com/chg1f/errorx/v2/stacktrace"
+	"github.com/chg1f/errorx/v2/stacktrace"
 )
 
 func main() {
+	stacktrace.PackageNames = append(stacktrace.PackageNames, stacktrace.PackageName())
+	errorx.Stacktrace = stacktrace.Stacktrace()
+
 	err := errorx.WithCode("invalid").New("boom")
 	ex := errorx.Be[string](err)
 	fmt.Println(ex.Stack().LogValue())

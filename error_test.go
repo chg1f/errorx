@@ -18,7 +18,7 @@ func TestBuilderMethods(t *testing.T) {
 	ex := errorx.Be[string](err)
 	require.NotNil(t, ex)
 	assert.Equal(t, "invalid", ex.Code())
-	assert.EqualError(t, err, "#invalid invalid input")
+	assert.EqualError(t, err, "#invalid invalid input(field=email)")
 }
 
 // TestWrapAndIs verifies wrapping keeps code and cause discoverable.
@@ -30,14 +30,28 @@ func TestWrapAndIs(t *testing.T) {
 	assert.True(t, errorx.In(errorx.Be[string](err), "missing"))
 	assert.ErrorIs(t, err, base)
 	assert.Nil(t, errorx.Wrap(nil, ""))
-	assert.EqualError(t, err, "#missing load config; disk failure")
+	assert.Contains(t, err.Error(), "#missing load config, disk failure")
 }
 
 // TestPackageLevelConstructors verifies the package-level convenience functions.
 func TestPackageLevelConstructors(t *testing.T) {
 	assert.EqualError(t, errorx.New("plain"), "plain")
 	err := errorx.WithCode(errorx.Unspecified).New("override", slog.String("k", "v"))
-	assert.EqualError(t, err, "override")
+	assert.EqualError(t, err, "override(k=v)")
+}
+
+// TestMessageStringAndError verifies the layered renderers expose the expected detail.
+func TestMessageStringAndError(t *testing.T) {
+	base := errors.New("disk failure")
+	err := errorx.WithCode("missing").
+		Wrap(base, "load config", slog.String("file", "app.yaml"))
+
+	ex := errorx.Be[string](err)
+	require.NotNil(t, ex)
+
+	assert.Equal(t, "load config", ex.Message())
+	assert.Equal(t, "load config(file=app.yaml), disk failure", ex.String())
+	assert.Equal(t, "#missing load config(file=app.yaml), disk failure", ex.Error())
 }
 
 // TestJoin verifies flattened aggregation and stable single-line formatting.
