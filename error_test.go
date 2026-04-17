@@ -39,3 +39,31 @@ func TestPackageLevelConstructors(t *testing.T) {
 	err := errorx.WithCode(errorx.Unspecified).New("override", slog.String("k", "v"))
 	assert.EqualError(t, err, "override")
 }
+
+// TestJoin verifies flattened aggregation and stable single-line formatting.
+func TestJoin(t *testing.T) {
+	errA := errors.New("alpha")
+	errB := errorx.WithCode("invalid").New("beta")
+	errC := errors.New("gamma")
+
+	err := errorx.Join(nil, errA, errorx.Join(errB, nil, errC))
+
+	require.Error(t, err)
+	assert.EqualError(t, err, "alpha; #invalid beta; gamma")
+	assert.ErrorIs(t, err, errA)
+	assert.ErrorIs(t, err, errB)
+	assert.ErrorIs(t, err, errC)
+
+	multi, ok := err.(interface{ Unwrap() []error })
+	require.True(t, ok)
+	assert.Len(t, multi.Unwrap(), 3)
+}
+
+// TestJoinSingle verifies Join avoids wrapping a single remaining error.
+func TestJoinSingle(t *testing.T) {
+	base := errors.New("only")
+
+	err := errorx.Join(nil, base, nil)
+
+	assert.Same(t, base, err)
+}

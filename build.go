@@ -1,6 +1,8 @@
 package errorx
 
-import "log/slog"
+import (
+	"log/slog"
+)
 
 // Builder accumulates error fields before creating an immutable Error value.
 type Builder[T comparable] Error[T]

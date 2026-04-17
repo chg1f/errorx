@@ -38,7 +38,7 @@ func (ex *Error[T]) Error() string {
 	}
 	if ex.wrapped != nil {
 		if buf.Len() != 0 {
-			buf.WriteString("; ")
+			buf.WriteString(", ")
 		}
 		buf.WriteString(ex.wrapped.Error())
 	}
