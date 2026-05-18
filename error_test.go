@@ -50,7 +50,7 @@ func TestMessageStringAndError(t *testing.T) {
 	require.NotNil(t, ex)
 
 	assert.Equal(t, "load config", ex.Message())
-	assert.Equal(t, "load config(file=app.yaml), disk failure", ex.String())
+	assert.Equal(t, "load config(file=app.yaml)", ex.String())
 	assert.Equal(t, "#missing load config(file=app.yaml), disk failure", ex.Error())
 }
 

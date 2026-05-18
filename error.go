@@ -74,7 +74,7 @@ func (ex *Error[T]) In(codes []T) bool {
 	return slices.Contains(codes, ex.code)
 }
 
-// Error formats the stack location, code, rendered body, and wrapped cause.
+// Error formats the code, rendered body, wrapped cause, and stack.
 func (ex *Error[T]) Error() string {
 	if ex == nil {
 		return "<nil>"
@@ -84,9 +84,23 @@ func (ex *Error[T]) Error() string {
 	if _, ok := any(ex.code).(unspecified); !ok {
 		_, _ = fmt.Fprintf(&buf, "#%v", ex.code)
 	}
-	buf.WriteString(ex.String())
+	if s := ex.String(); s != "" {
+		if buf.Len() != 0 {
+			buf.WriteByte(' ')
+		}
+		buf.WriteString(s)
+	}
+	if ex.cause != nil {
+		if buf.Len() != 0 {
+			buf.WriteString(", ")
+		}
+		buf.WriteString(ex.cause.Error())
+	}
 	if ex.stack != nil {
-		buf.WriteString(" [")
+		if buf.Len() != 0 {
+			buf.WriteByte(' ')
+		}
+		buf.WriteByte('[')
 		buf.WriteString(ex.stack.String())
 		buf.WriteByte(']')
 	}
@@ -95,39 +109,35 @@ func (ex *Error[T]) Error() string {
 
 var _ error = (*Error[struct{}])(nil)
 
-// String formats the message, attrs, and wrapped cause without rendering the code.
+// String formats the message and attrs without rendering the code or wrapped cause.
 func (ex *Error[T]) String() string {
 	if ex == nil {
-		return "<nil>"
+		return ""
 	}
 	var buf strings.Builder
 	if ex.message != "" {
 		buf.WriteString(ex.message)
 	}
-	var attrs strings.Builder
-	for i := range ex.attrs {
-		attr := ex.attrs[i]
-		attr.Value = attr.Value.Resolve()
-		if attr.Key == "" {
-			continue
+	if len(ex.attrs) > 0 {
+		var attrs strings.Builder
+		for i := range ex.attrs {
+			attr := ex.attrs[i]
+			attr.Value = attr.Value.Resolve()
+			if attr.Key == "" {
+				continue
+			}
+			if attrs.Len() != 0 {
+				attrs.WriteByte(' ')
+			}
+			attrs.WriteString(attr.Key)
+			attrs.WriteByte('=')
+			_, _ = fmt.Fprint(&attrs, attr.Value.Any())
 		}
 		if attrs.Len() != 0 {
-			attrs.WriteByte(' ')
+			buf.WriteByte('(')
+			buf.WriteString(attrs.String())
+			buf.WriteByte(')')
 		}
-		attrs.WriteString(attr.Key)
-		attrs.WriteByte('=')
-		_, _ = fmt.Fprint(&attrs, attr.Value.Any())
-	}
-	if attrs.Len() != 0 {
-		buf.WriteByte('(')
-		buf.WriteString(attrs.String())
-		buf.WriteByte(')')
-	}
-	if ex.cause != nil {
-		if buf.Len() != 0 {
-			buf.WriteString(", ")
-		}
-		buf.WriteString(ex.cause.Error())
 	}
 	return buf.String()
 }

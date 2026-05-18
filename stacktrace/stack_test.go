@@ -46,12 +46,12 @@ func TestStack(t *testing.T) {
 	require.NotEmpty(t, frames)
 	assert.Equal(t, frames, ex.Stack().LogValue().Any().([]string))
 	assert.Equal(t, frames[len(frames)-1], ex.Stack().String())
-	assert.Regexp(t, regexp.MustCompile(`^[^/\]]+:\d+@.+$`), ex.Stack().String())
+	assert.Regexp(t, regexp.MustCompile(`^.+:\d+@.+$`), ex.Stack().String())
 	assert.Contains(t, frames[0], filepath.Base(firstFromStack.File))
 	assert.Equal(t, frames, st.LogValue().Any().([]string))
 }
 
-// TestErrorRendersStack verifies Error prefixes the rendered stack string.
+// TestErrorRendersStack verifies Error appends the rendered stack string.
 func TestErrorRendersStack(t *testing.T) {
 	prev := errorx.Stacktrace
 	errorx.Stacktrace = Stacktrace(16, PackageName())
@@ -61,5 +61,5 @@ func TestErrorRendersStack(t *testing.T) {
 
 	err := errorx.WithCode("invalid").New("boom")
 
-	assert.Regexp(t, regexp.MustCompile(`^\[[^/\]]+:\d+@.+\]#invalidboom$`), err.Error())
+	assert.Regexp(t, regexp.MustCompile(`^#invalid boom \[.+:\d+@.+\]$`), err.Error())
 }
