@@ -47,6 +47,9 @@ func (ex *Error[T]) Message() string {
 
 // Stack returns the captured stack, if a stack provider was registered.
 func (ex *Error[T]) Stack() Stack {
+	if ex == nil {
+		return nil
+	}
 	return ex.stack
 }
 
@@ -81,7 +84,13 @@ func (ex *Error[T]) Error() string {
 	}
 	var buf strings.Builder
 	buf.Grow(Length)
+	if ex.stack != nil {
+		buf.WriteString(ex.stack.String())
+	}
 	if _, ok := any(ex.code).(unspecified); !ok {
+		if buf.Len() != 0 {
+			buf.WriteByte(' ')
+		}
 		_, _ = fmt.Fprintf(&buf, "#%v", ex.code)
 	}
 	if s := ex.String(); s != "" {
@@ -95,14 +104,6 @@ func (ex *Error[T]) Error() string {
 			buf.WriteString(", ")
 		}
 		buf.WriteString(ex.cause.Error())
-	}
-	if ex.stack != nil {
-		if buf.Len() != 0 {
-			buf.WriteByte(' ')
-		}
-		buf.WriteByte('[')
-		buf.WriteString(ex.stack.String())
-		buf.WriteByte(']')
 	}
 	return buf.String()
 }

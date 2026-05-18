@@ -16,7 +16,7 @@ func (s stack) String() string {
 	if len(s) == 0 {
 		return ""
 	}
-	return Format(s[len(s)-1])
+	return Format(s[0])
 }
 
 // LogValue renders captured frames as a []string.
@@ -30,7 +30,7 @@ func (s stack) LogValue() slog.Value {
 
 // Stacktrace builds a stack provider with the given depth and skip package names.
 func Stacktrace(depth int, skipNames ...string) func() errorx.Stack {
-	skipNames = append(skipNames, PackageName())
+	skipNames = append(skipNames, errorx.Package, errorx.PackageName())
 	return func() errorx.Stack {
 		pcs := make([]uintptr, depth)
 		count := runtime.Callers(2, pcs)

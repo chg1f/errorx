@@ -16,7 +16,7 @@ import (
 // TestStack verifies the stack provider populates frames after explicit registration.
 func TestStack(t *testing.T) {
 	prev := errorx.Stacktrace
-	pkg := PackageName()
+	pkg := errorx.PackageName()
 	errorx.Stacktrace = Stacktrace(16, pkg)
 	t.Cleanup(func() {
 		errorx.Stacktrace = prev
@@ -54,7 +54,7 @@ func TestStack(t *testing.T) {
 // TestErrorRendersStack verifies Error appends the rendered stack string.
 func TestErrorRendersStack(t *testing.T) {
 	prev := errorx.Stacktrace
-	errorx.Stacktrace = Stacktrace(16, PackageName())
+	errorx.Stacktrace = Stacktrace(16, errorx.PackageName())
 	t.Cleanup(func() {
 		errorx.Stacktrace = prev
 	})
