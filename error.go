@@ -101,7 +101,7 @@ func (ex *Error[T]) Error() string {
 	}
 	if ex.cause != nil {
 		if buf.Len() != 0 {
-			buf.WriteString(", ")
+			buf.WriteString(". ")
 		}
 		buf.WriteString(ex.cause.Error())
 	}
@@ -120,24 +120,19 @@ func (ex *Error[T]) String() string {
 		buf.WriteString(ex.message)
 	}
 	if len(ex.attrs) > 0 {
-		var attrs strings.Builder
+		if buf.Len() != 0 {
+			buf.WriteByte(',')
+		}
 		for i := range ex.attrs {
 			attr := ex.attrs[i]
 			attr.Value = attr.Value.Resolve()
 			if attr.Key == "" {
 				continue
 			}
-			if attrs.Len() != 0 {
-				attrs.WriteByte(' ')
-			}
-			attrs.WriteString(attr.Key)
-			attrs.WriteByte('=')
-			_, _ = fmt.Fprint(&attrs, attr.Value.Any())
-		}
-		if attrs.Len() != 0 {
-			buf.WriteByte('(')
-			buf.WriteString(attrs.String())
-			buf.WriteByte(')')
+			buf.WriteByte(' ')
+			buf.WriteString(attr.Key)
+			buf.WriteByte('=')
+			_, _ = fmt.Fprint(&buf, attr.Value.Any())
 		}
 	}
 	return buf.String()
