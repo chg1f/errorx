@@ -2,6 +2,7 @@ package errorx_test
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"testing"
 
@@ -31,11 +32,21 @@ func TestBe(t *testing.T) {
 
 // TestIn verifies code membership checks on typed errors.
 func TestIn(t *testing.T) {
-	err := errorx.WithCode("invalid").New("invalid input")
+	base := errors.New("disk failure")
+	err := errorx.WithCode("invalid").Wrap(base, "invalid input")
 	ex := errorx.Be[string](err)
 	require.NotNil(t, ex)
 
-	assert.True(t, errorx.In(ex, "invalid"))
-	assert.False(t, errorx.In(ex, "missing"))
-	assert.False(t, errorx.In(nil, "invalid"))
+	assert.True(t, ex.In([]string{"invalid"}))
+	assert.False(t, ex.In([]string{"missing"}))
+
+	var nilError *errorx.Error[string]
+	assert.False(t, nilError.In([]string{"invalid"}))
+
+	assert.True(t, errorx.In(ex, []string{"invalid"}))
+	assert.False(t, errorx.In(ex, []string{"missing"}))
+	assert.False(t, errorx.In(nil, []string{"invalid"}))
+	assert.True(t, errorx.In(err, []string{"invalid"}))
+	assert.True(t, errorx.In(errorx.Join(errors.New("plain"), err), []string{"invalid"}))
+	assert.True(t, errorx.In(fmt.Errorf("outer: %w", err), []string{"invalid"}))
 }

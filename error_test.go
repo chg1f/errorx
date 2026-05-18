@@ -27,7 +27,7 @@ func TestWrapAndIs(t *testing.T) {
 	err := errorx.WithCode("missing").Wrap(base, "load config")
 
 	assert.ErrorIs(t, err, errorx.WithCode("missing").New(""))
-	assert.True(t, errorx.In(errorx.Be[string](err), "missing"))
+	assert.True(t, errorx.In(errorx.Be[string](err), []string{"missing"}))
 	assert.ErrorIs(t, err, base)
 	assert.Nil(t, errorx.Wrap(nil, ""))
 	assert.Contains(t, err.Error(), "#missing load config, disk failure")

@@ -40,7 +40,7 @@ func main() {
 	ex := errorx.Be[string](err)
 	fmt.Println(ex.Code())
 	fmt.Println(err.Error())
-	fmt.Println(errorx.In(ex, "config.invalid"))
+	fmt.Println(errorx.In(ex, []string{"config.invalid"}))
 }
 ```
 

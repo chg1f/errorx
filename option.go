@@ -2,7 +2,6 @@ package errorx
 
 import (
 	"errors"
-	"slices"
 )
 
 // CodeOption defines fallback codes used by Be and Error.Code.
@@ -46,10 +45,31 @@ func Be[T comparable](err error, opts ...func(*CodeOption[T])) *Error[T] {
 	return ex
 }
 
-// In reports whether the error code matches one of the provided codes.
-func In[T comparable](err *Error[T], codes ...T) bool {
-	if err != nil {
-		return slices.Contains(codes, err.code)
+// In reports whether any error in the unwrap tree matches one of the provided codes.
+func In[T comparable](err error, codes []T, opts ...func(*CodeOption[T])) bool {
+	stack := []error{err}
+	for len(stack) != 0 {
+		n := len(stack) - 1
+		node := stack[n]
+		stack = stack[:n]
+		if node == nil {
+			continue
+		}
+		if ex := Be(node, opts...); ex.In(codes) {
+			return true
+		}
+		if x, ok := node.(interface{ Unwrap() []error }); ok {
+			children := x.Unwrap()
+			for i := len(children) - 1; i >= 0; i-- {
+				if children[i] != nil {
+					stack = append(stack, children[i])
+				}
+			}
+			continue
+		}
+		if x, ok := node.(interface{ Unwrap() error }); ok && x.Unwrap() != nil {
+			stack = append(stack, x.Unwrap())
+		}
 	}
 	return false
 }
