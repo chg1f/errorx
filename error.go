@@ -3,8 +3,6 @@ package errorx
 import (
 	"fmt"
 	"log/slog"
-	"path/filepath"
-	"strconv"
 	"strings"
 )
 
@@ -20,7 +18,7 @@ type Error[T comparable] struct {
 	code T
 
 	message string
-	wrapped error
+	cause   error
 
 	attrs []slog.Attr
 	stack Stack
@@ -39,7 +37,22 @@ func (ex *Error[T]) String() string {
 	if ex == nil {
 		return "<nil>"
 	}
-	return ex.renderBody()
+	var buf strings.Builder
+	if ex.message != "" {
+		buf.WriteString(ex.message)
+	}
+	if attrs := formatAttrs(ex.attrs); attrs != "" {
+		buf.WriteByte('(')
+		buf.WriteString(attrs)
+		buf.WriteByte(')')
+	}
+	if ex.cause != nil {
+		if buf.Len() != 0 {
+			buf.WriteString(", ")
+		}
+		buf.WriteString(ex.cause.Error())
+	}
+	return buf.String()
 }
 
 // Error formats the stack location, code, rendered body, and wrapped cause.
@@ -49,19 +62,14 @@ func (ex *Error[T]) Error() string {
 	}
 	var buf strings.Builder
 	buf.Grow(Length)
-	if stack := ex.stackString(); stack != "" {
-		buf.WriteByte('[')
-		buf.WriteString(stack)
-		buf.WriteByte(']')
-	}
 	if !isUnspecified(ex.code) {
 		_, _ = fmt.Fprintf(&buf, "#%v", ex.code)
 	}
-	if text := ex.renderBody(); text != "" {
-		if buf.Len() != 0 {
-			buf.WriteByte(' ')
-		}
-		buf.WriteString(text)
+	buf.WriteString(ex.String())
+	if ex.stack != nil {
+		buf.WriteString(" [")
+		buf.WriteString(ex.stack.String())
+		buf.WriteByte(']')
 	}
 	return buf.String()
 }
@@ -70,7 +78,7 @@ var _ error = (*Error[struct{}])(nil)
 
 // Unwrap exposes wrapped causes to the standard errors package.
 func (ex *Error[T]) Unwrap() error {
-	return ex.wrapped
+	return ex.cause
 }
 
 // Is compares typed error codes to support errors.Is against sentinel builders.
@@ -110,8 +118,8 @@ func (ex *Error[T]) LogValue() slog.Value {
 		slog.Any("code", ex.code),
 		slog.String("message", ex.message),
 	}
-	if ex.wrapped != nil {
-		attrs = append(attrs, slog.Any("cause", ex.wrapped))
+	if ex.cause != nil {
+		attrs = append(attrs, slog.Any("cause", ex.cause))
 	}
 	if len(ex.attrs) != 0 {
 		attrs = append(attrs, slog.Any("attrs", ex.attrs))
@@ -123,36 +131,3 @@ func (ex *Error[T]) LogValue() slog.Value {
 }
 
 var _ slog.LogValuer = (*Error[struct{}])(nil)
-
-// renderBody formats message, attrs, and wrapped cause in a stable single-line form.
-func (ex *Error[T]) renderBody() string {
-	var buf strings.Builder
-	if ex.message != "" {
-		buf.WriteString(ex.message)
-	}
-	if attrs := formatAttrs(ex.attrs); attrs != "" {
-		buf.WriteByte('(')
-		buf.WriteString(attrs)
-		buf.WriteByte(')')
-	}
-	if ex.wrapped != nil {
-		if buf.Len() != 0 {
-			buf.WriteString(", ")
-		}
-		buf.WriteString(ex.wrapped.Error())
-	}
-	return buf.String()
-}
-
-// stackString renders the first stack frame as File:Line for compact error output.
-func (ex *Error[T]) stackString() string {
-	if ex == nil || ex.stack == nil {
-		return ""
-	}
-	frames := ex.stack.Frames()
-	frame, ok := frames.Next()
-	if !ok || frame.File == "" || frame.Line == 0 {
-		return ""
-	}
-	return filepath.Base(frame.File) + ":" + strconv.Itoa(frame.Line)
-}

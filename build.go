@@ -12,7 +12,7 @@ func (eb *Builder[T]) clone() *Builder[T] {
 	var nb Builder[T]
 	nb.code = eb.code
 	nb.message = eb.message
-	nb.wrapped = eb.wrapped
+	nb.cause = eb.cause
 	nb.attrs = append([]slog.Attr(nil), eb.attrs...)
 	nb.stack = eb.stack
 	return &nb
@@ -45,26 +45,26 @@ func WithAttrs(attrs ...slog.Attr) *Builder[unspecified] {
 }
 
 // build finalizes the current builder after applying the last message, cause, and attrs.
-func (eb *Builder[T]) build(message string, wrapped error, attrs ...slog.Attr) error {
+func (eb *Builder[T]) build(message string, cause error, attrs ...slog.Attr) error {
 	nb := eb.clone()
 	nb.message = message
-	nb.wrapped = wrapped
+	nb.cause = cause
 	nb.attrs = append(nb.attrs, attrs...)
 	nb.stack = Stacktrace()
 	return (*Error[T])(nb)
 }
 
 // Wrap finalizes the builder while wrapping the provided cause.
-func (eb *Builder[T]) Wrap(wrapped error, message string, attrs ...slog.Attr) error {
-	if wrapped == nil {
+func (eb *Builder[T]) Wrap(cause error, message string, attrs ...slog.Attr) error {
+	if cause == nil {
 		return nil
 	}
-	return eb.build(message, wrapped, attrs...)
+	return eb.build(message, cause, attrs...)
 }
 
 // Wrap creates an unspecified-code error that wraps the provided cause.
-func Wrap(wrapped error, message string, attrs ...slog.Attr) error {
-	return WithCode(Unspecified).Wrap(wrapped, message, attrs...)
+func Wrap(cause error, message string, attrs ...slog.Attr) error {
+	return WithCode(Unspecified).Wrap(cause, message, attrs...)
 }
 
 // New finalizes the builder using the provided message.

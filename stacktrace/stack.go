@@ -2,91 +2,58 @@ package stacktrace
 
 import (
 	"log/slog"
-	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 
 	"github.com/chg1f/errorx/v2"
 )
 
-// Depth bounds the number of frames captured by the default provider.
-var Depth = 16
-
-// PackageNames holds the default package filters used by Stacktrace.
-var PackageNames = []string{
-	"github.com/chg1f/errorx/v2",
-}
-
 // stack is the default stack implementation exported through errorx.Stack.
-type stack []uintptr
+type stack []runtime.Frame
 
-// LogValue renders captured frames as a compact single-line string.
-func (s stack) LogValue() slog.Value {
+// String renders the last captured frame as FileName:Line@FuncName.
+func (s stack) String() string {
 	if len(s) == 0 {
-		return slog.StringValue("")
+		return ""
 	}
-	var b strings.Builder
-	frames := s.Frames()
-	for i := 0; ; i++ {
-		frame, more := frames.Next()
-		if frame.File == "" {
-			break
-		}
-		if i != 0 {
-			b.WriteString(" | ")
-		}
-		name := frame.Function
-		if idx := strings.LastIndex(name, "/"); idx >= 0 {
-			name = name[idx+1:]
-		}
-		b.WriteString(filepath.Base(frame.File))
-		b.WriteByte(':')
-		b.WriteString(strconv.Itoa(frame.Line))
-		b.WriteByte('@')
-		b.WriteString(name)
-		if !more {
-			break
-		}
-	}
-	return slog.StringValue(b.String())
+	return Format(s[len(s)-1])
 }
 
-// Frames rebuilds a fresh runtime.Frames iterator for callers that need frame access.
-func (s stack) Frames() runtime.Frames {
-	frames := runtime.CallersFrames([]uintptr(s))
-	if frames == nil {
-		return runtime.Frames{}
+// LogValue renders captured frames as a []string.
+func (s stack) LogValue() slog.Value {
+	list := make([]string, 0, len(s))
+	for _, frame := range s {
+		list = append(list, Format(frame))
 	}
-	return *frames
+	return slog.AnyValue(list)
 }
 
-// Stacktrace builds a stack provider after preprocessing the current PackageNames.
-func Stacktrace() func() errorx.Stack {
+// Stacktrace builds a stack provider with the given depth and skip package names.
+func Stacktrace(depth int, skipNames ...string) func() errorx.Stack {
+	skipNames = append(skipNames, PackageName())
 	return func() errorx.Stack {
-		preservedPcs := make([]uintptr, 0, Depth)
-		pcs := make([]uintptr, Depth)
+		pcs := make([]uintptr, depth)
 		count := runtime.Callers(2, pcs)
 		iter := runtime.CallersFrames(pcs[:count])
-		for len(preservedPcs) < Depth {
-			item, more := iter.Next()
-			if !skipFrame(item, PackageNames...) {
-				preservedPcs = append(preservedPcs, item.PC)
+		preservedFrames := make([]runtime.Frame, 0, depth)
+		for len(preservedFrames) < depth {
+			frame, more := iter.Next()
+			if frame.File != "" {
+				skip := false
+				for _, skipName := range skipNames {
+					if strings.Contains(frame.Function, skipName) {
+						skip = true
+						break
+					}
+				}
+				if !skip {
+					preservedFrames = append(preservedFrames, frame)
+				}
 			}
 			if !more {
 				break
 			}
 		}
-		return stack(preservedPcs)
+		return stack(preservedFrames)
 	}
-}
-
-// skipFrame reports whether the frame belongs to one of the filtered packages.
-func skipFrame(frame runtime.Frame, pkgNames ...string) bool {
-	for _, pkgName := range pkgNames {
-		if strings.Contains(frame.Function, pkgName) {
-			return true
-		}
-	}
-	return false
 }
